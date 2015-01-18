@@ -1,3 +1,6 @@
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -13,6 +16,8 @@ import java.sql.SQLException;
 public class GameServiceImpl extends DatabaseService implements GameService {
     private static String gameTable = "Games";
     private Connection conn = getConnection();
+    private static final Logger logger = LogManager.getLogger(GameServiceImpl.class);
+
 
     /**
      * findGame converts game titles to gameIds.
@@ -26,12 +31,12 @@ public class GameServiceImpl extends DatabaseService implements GameService {
             preparedStatement.setString(1, title);
             ResultSet resultSet = preparedStatement.executeQuery();
             if (!resultSet.next()) {
-                System.out.println("Nothing in the set");
+                logger.debug("Game does not exist");
                 return 0; //game title does not exist
             }
             return resultSet.getInt("id");
         } catch (SQLException e) {
-            System.out.println("Error preparing sql statement: " + e.getMessage());
+            logger.error("Error preparing sql statement: " + e.getMessage());
             return 0;
         }
     }
@@ -44,6 +49,7 @@ public class GameServiceImpl extends DatabaseService implements GameService {
     public boolean addGame(String title) {
         if (findGame(title) > 0) {
             //the game is already in the DB
+            logger.debug("Game is already in the database");
             return false;
         }
         String sql = "insert into " + gameTable + " Values(default, ?, default, default)";
@@ -53,7 +59,7 @@ public class GameServiceImpl extends DatabaseService implements GameService {
             preparedStatement.executeUpdate();
         }
         catch (SQLException e) {
-            System.out.println("Error preparing sql statement: " + e.getMessage());
+            logger.error("Error preparing sql statement: " + e.getMessage());
             return false;
         }
         VotingService votingService = new VotingServiceImpl();
@@ -70,6 +76,7 @@ public class GameServiceImpl extends DatabaseService implements GameService {
     public boolean addGame(String title, boolean owned) {
         if (!addGame(title)) {
             //the game already exists in the db
+            logger.debug("Game is already in the database");
             return false;
         }
         // else: game was inserted, now we will set it as owned
@@ -90,10 +97,10 @@ public class GameServiceImpl extends DatabaseService implements GameService {
             preparedStatement.setBoolean(1, owned);
             preparedStatement.setString(2, title);
             preparedStatement.executeUpdate();
-            System.out.println("Set game as owned.");
+            logger.debug("Set game as owned.");
         }
         catch (SQLException e) {
-            System.out.println("Error adding ownership to game " + e.getMessage());
+            logger.error("Error adding ownership to game " + e.getMessage());
             return false;
         }
         return true;

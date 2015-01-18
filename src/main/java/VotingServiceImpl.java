@@ -3,6 +3,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+
 /**
  * @author Kody Kantor
  * VotingServiceImpl is a DatabaseService that provides methods for users
@@ -17,6 +20,7 @@ public class VotingServiceImpl extends DatabaseService implements VotingService 
     private static String voteTable = "Votes";
     private Connection conn = getConnection();
     private static GameService gameService = new GameServiceImpl();
+    private static final Logger logger = LogManager.getLogger(VotingServiceImpl.class);
     private int voteIncrement = 1;
     private int voteDecrement = -1;
 
@@ -32,6 +36,7 @@ public class VotingServiceImpl extends DatabaseService implements VotingService 
         int gameId = gameService.findGame(title);
         if (gameId < 1) {
             //the game doesn't exist
+            logger.debug("Game does not exist");
             return 0;
         }
         return changeVote(positive, gameId);
@@ -56,7 +61,7 @@ public class VotingServiceImpl extends DatabaseService implements VotingService 
             preparedStatement.executeUpdate();
         }
         catch (SQLException e) {
-            System.out.println("Error adding a vote for title: " + e.getMessage());
+            logger.error("Error adding a vote for title: " + e.getMessage());
             return 0;
         }
         return getVotes(gameId);
@@ -81,6 +86,7 @@ public class VotingServiceImpl extends DatabaseService implements VotingService 
         int gameId = gameService.findGame(title);
         if (gameId < 1) {
             //games that don't exist have 0 votes
+            logger.debug("Game does not exist");
             return 0;
         }
         return getVotes(gameId);
@@ -98,13 +104,13 @@ public class VotingServiceImpl extends DatabaseService implements VotingService 
             preparedStatement.setInt(1, gameId);
             ResultSet resultSet = preparedStatement.executeQuery();
             if (!resultSet.next()) {
-                System.out.println("No votes were found.");
+                logger.debug("No votes were found.");
                 return 0;
             }
             return resultSet.getInt("votes");
         }
         catch (SQLException e) {
-            System.out.println("Error getting votes for title: " + e.getMessage());
+            logger.error("Error getting votes for title: " + e.getMessage());
             return 0;
         }
     }
@@ -123,7 +129,7 @@ public class VotingServiceImpl extends DatabaseService implements VotingService 
             preparedStatement.executeUpdate();
         }
         catch (SQLException e) {
-            System.out.println("Error making title voteable: " + e.getMessage());
+            logger.error("Error making title voteable: " + e.getMessage());
             return false;
         }
         return true;
