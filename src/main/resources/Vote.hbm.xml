@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC
+        "-//Hibernate/Hibernate Mapping DTD//EN"
+        "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd">
+
+<hibernate-mapping>
+    <class name="com.ratings.kkantor.common.Vote" table="Votes">
+        <meta attribute="class-description">
+            This class contains vote counts
+        </meta>
+        <id name="gameId" type="int" column="gameId">
+        </id>
+        <property name="votes" column="votes" type="int"/>
+    </class>
+</hibernate-mapping>

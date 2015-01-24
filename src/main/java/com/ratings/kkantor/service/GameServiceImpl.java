@@ -1,14 +1,22 @@
+package com.ratings.kkantor.service;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.hibernate.Criteria;
+import org.hibernate.Session;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
-import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.List;
+
+import com.ratings.kkantor.common.Game;
+import org.hibernate.criterion.Restrictions;
+
 
 /**
  * @author Kody Kantor
- * GameServiceImpl is a DatabaseService that provides methods for users
+ * com.ratings.kkantor.service.GameServiceImpl is a com.ratings.kkantor.service.DatabaseService that provides methods for users
  * to add games to the DB, and set them as owned/not owned.
  *
  * TODO add delete functionality
@@ -25,20 +33,21 @@ public class GameServiceImpl extends DatabaseService implements GameService {
      * @return id associated with title
      */
     public int findGame(String title) {
-        String sql = "select id from " + gameTable + " where title like ?";
-        try {
-            PreparedStatement preparedStatement = conn.prepareStatement(sql);
-            preparedStatement.setString(1, title);
-            ResultSet resultSet = preparedStatement.executeQuery();
-            if (!resultSet.next()) {
-                logger.debug("Game does not exist");
-                return 0; //game title does not exist
-            }
-            return resultSet.getInt("id");
-        } catch (SQLException e) {
-            logger.error("Error preparing sql statement: " + e.getMessage());
+        Session session = getSessionFactory().openSession();
+        logger.debug("Opened hibernate session");
+        Criteria criteria = session.createCriteria(Game.class);
+        criteria.add(Restrictions.like("title", title));
+        List results = criteria.list();
+        session.close();
+        if (results.size() > 1) {
+            logger.debug("Multiple games found with same title!");
+        }
+        if (results.size() < 1) {
+            logger.debug("No game found with that title");
             return 0;
         }
+        Game game = (Game) results.get(0);
+        return game.getId();
     }
 
     /**

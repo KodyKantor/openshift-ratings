@@ -1,3 +1,4 @@
+package com.ratings.kkantor.service;
 
 public interface VotingService {
     public boolean isRestrictedAccess();

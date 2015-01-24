@@ -1,3 +1,4 @@
+package com.ratings.kkantor.service;
 
 public interface GameService {
     public int findGame(String title);

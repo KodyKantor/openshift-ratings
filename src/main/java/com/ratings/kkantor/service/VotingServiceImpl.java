@@ -1,3 +1,5 @@
+package com.ratings.kkantor.service;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -5,10 +7,11 @@ import java.sql.SQLException;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.hibernate.Session;
 
 /**
  * @author Kody Kantor
- * VotingServiceImpl is a DatabaseService that provides methods for users
+ * com.ratings.kkantor.service.VotingServiceImpl is a com.ratings.kkantor.service.DatabaseService that provides methods for users
  * to vote on game titles. Convenience methods are provided where necessary
  * so users don't need to know gameIds to use the methods.
  *
@@ -33,6 +36,9 @@ public class VotingServiceImpl extends DatabaseService implements VotingService 
      * @return vote count after update
      */
     public int changeVote(boolean positive, String title) {
+        Session session = getSessionFactory().openSession();
+        logger.debug("Opened hibernate session");
+
         int gameId = gameService.findGame(title);
         if (gameId < 1) {
             //the game doesn't exist
