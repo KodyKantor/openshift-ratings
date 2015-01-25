@@ -86,6 +86,11 @@
 						<artifactId>maven-war-plugin</artifactId>
 						<version>2.1.1</version>
 						<configuration>
+							<archive>
+								<manifest>
+									<mainClass>com.ratings.kkantor.Bootstrap</mainClass>
+								</manifest>
+							</archive>
 							<outputDirectory>webapps</outputDirectory>
 							<warName>ROOT</warName>
 						</configuration>
