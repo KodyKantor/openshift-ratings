@@ -12,8 +12,11 @@ public class Bootstrap {
 
     public static void main(String[] args) {
         get("/test", (request, response) -> doStuff());
+        get("/", (request, response) -> doMoreStuff());
     }
     public static String doStuff() {
+
+        /*
         logger.debug("Doing stuff");
         GameServiceImpl rs = new GameServiceImpl();
         VotingServiceImpl vs = new VotingServiceImpl();
@@ -21,6 +24,11 @@ public class Bootstrap {
         logger.info("Voted. New score is " + vs.changeVote(true, "Kody's Awesome Game"));
         logger.info("Game ID is " + rs.findGame("Kody's awesome game"));
         logger.info("Deleted game and votes? " + rs.deleteGame("Kody's awesome game"));
-        return "Hello!";
+        */
+        return "Testing testing!";
+    }
+
+    public static String doMoreStuff() {
+        return "Doing more stuff";
     }
 }
