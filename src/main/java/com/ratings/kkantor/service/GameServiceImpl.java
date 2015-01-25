@@ -2,30 +2,27 @@ package com.ratings.kkantor.service;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.hibernate.Criteria;
-import org.hibernate.Session;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import org.hibernate.Criteria;
+import org.hibernate.HibernateException;
+import org.hibernate.Session;
+import org.hibernate.Transaction;
+import org.hibernate.criterion.Restrictions;
+
 import java.util.List;
 
 import com.ratings.kkantor.common.Game;
-import org.hibernate.criterion.Restrictions;
-
 
 /**
  * @author Kody Kantor
- * com.ratings.kkantor.service.GameServiceImpl is a com.ratings.kkantor.service.DatabaseService that provides methods for users
+ * com.ratings.kkantor.service.GameServiceImpl is a com.ratings.kkantor.service.DatabaseService
+ * that provides methods for users
  * to add games to the DB, and set them as owned/not owned.
  *
  * TODO add delete functionality
  */
 public class GameServiceImpl extends DatabaseService implements GameService {
-    private static String gameTable = "Games";
-    private Connection conn = getConnection();
     private static final Logger logger = LogManager.getLogger(GameServiceImpl.class);
-
 
     /**
      * findGame converts game titles to gameIds.
@@ -46,6 +43,9 @@ public class GameServiceImpl extends DatabaseService implements GameService {
             logger.debug("No game found with that title");
             return 0;
         }
+        //if there are multiple games with the same title
+        // (there shouldn't be), we will just return the first
+        // in the list that was returned.
         Game game = (Game) results.get(0);
         return game.getId();
     }
@@ -61,18 +61,28 @@ public class GameServiceImpl extends DatabaseService implements GameService {
             logger.debug("Game is already in the database");
             return false;
         }
-        String sql = "insert into " + gameTable + " Values(default, ?, default, default)";
+        Session session = getSessionFactory().openSession();
+        Transaction tx = null;
+        Integer gameId;
         try {
-            PreparedStatement preparedStatement = conn.prepareStatement(sql);
-            preparedStatement.setString(1, title);
-            preparedStatement.executeUpdate();
-        }
-        catch (SQLException e) {
-            logger.error("Error preparing sql statement: " + e.getMessage());
+            tx = session.beginTransaction();
+            Game game = new Game();
+            game.setTitle(title);
+            gameId = (Integer) session.save(game);
+            tx.commit();
+        } catch (HibernateException e) {
+            logger.error("Error adding game to database");
+            if (tx != null) {
+                tx.rollback(); //undo the unfinished transaction
+            }
+            e.printStackTrace();
             return false;
+        } finally {
+            session.close();
         }
+        logger.debug("Added game to database");
         VotingService votingService = new VotingServiceImpl();
-        votingService.makeVoteable(findGame(title));
+        votingService.makeVoteable(gameId); //autoboxing
         return true;
     }
 
@@ -89,29 +99,66 @@ public class GameServiceImpl extends DatabaseService implements GameService {
             return false;
         }
         // else: game was inserted, now we will set it as owned
-        return setOwned(title, owned);
+        return setOwned(findGame(title), owned);
     }
 
     /**
      * setOwned updates the Games table to specify if a game is/isn't owned. It covers
      * both functions
-     * @param title name of the game
+     * @param gameId unique identifier of the game
      * @param owned true=owned, false=not owned
      * @return whether or not the ownership changed successfully
      */
-    public boolean setOwned(String title, boolean owned) {
-        String sql = "update " + gameTable + " set owned = ? where title like ?";
+    public boolean setOwned(int gameId, boolean owned) {
+        Session session = getSessionFactory().openSession();
+        Transaction tx = null;
         try {
-            PreparedStatement preparedStatement = conn.prepareStatement(sql);
-            preparedStatement.setBoolean(1, owned);
-            preparedStatement.setString(2, title);
-            preparedStatement.executeUpdate();
-            logger.debug("Set game as owned.");
-        }
-        catch (SQLException e) {
-            logger.error("Error adding ownership to game " + e.getMessage());
+            tx = session.beginTransaction();
+            Game game = (Game) session.get(Game.class, gameId);
+            game.setOwned(owned);
+            tx.commit();
+        } catch (HibernateException e) {
+            logger.error("Error changing 'owned' value");
+            if (tx != null) {
+                tx.rollback(); //undo the unfinished transaction
+            }
+            e.printStackTrace();
             return false;
+        } finally {
+            session.close();
         }
+        logger.debug("Changed owned value");
+        return true;
+    }
+
+    /**
+     * deleteGame deletes a game from the database
+     *
+     * @param title name of the game
+     * @return whether or not game was deleted successfully
+     */
+    public boolean deleteGame(String title) {
+        int gameId = findGame(title);
+        Session session = getSessionFactory().openSession();
+        Transaction tx = null;
+        try {
+            tx = session.beginTransaction();
+            Game game = (Game) session.get(Game.class, gameId);
+            session.delete(game);
+            tx.commit();
+        } catch (HibernateException e) {
+            logger.error("Error deleting game");
+            if (tx != null) {
+                tx.rollback(); //undo the unfinished transaction
+            }
+            e.printStackTrace();
+            return false;
+        } finally {
+            session.close();
+        }
+        logger.debug("Deleted game");
+        VotingService votingService = new VotingServiceImpl();
+        votingService.deleteVotes(gameId);
         return true;
     }
 }

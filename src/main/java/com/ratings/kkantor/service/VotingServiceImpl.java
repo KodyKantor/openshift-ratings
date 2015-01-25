@@ -1,13 +1,13 @@
 package com.ratings.kkantor.service;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+
+import org.hibernate.HibernateException;
 import org.hibernate.Session;
+import org.hibernate.Transaction;
+
+import com.ratings.kkantor.common.Vote;
 
 /**
  * @author Kody Kantor
@@ -20,12 +20,7 @@ import org.hibernate.Session;
  * their votes 'worth' more.
  */
 public class VotingServiceImpl extends DatabaseService implements VotingService {
-    private static String voteTable = "Votes";
-    private Connection conn = getConnection();
-    private static GameService gameService = new GameServiceImpl();
     private static final Logger logger = LogManager.getLogger(VotingServiceImpl.class);
-    private int voteIncrement = 1;
-    private int voteDecrement = -1;
 
     /**
      * changeVote is a convenience method when the caller does not
@@ -36,9 +31,7 @@ public class VotingServiceImpl extends DatabaseService implements VotingService 
      * @return vote count after update
      */
     public int changeVote(boolean positive, String title) {
-        Session session = getSessionFactory().openSession();
-        logger.debug("Opened hibernate session");
-
+        GameService gameService = new GameServiceImpl();
         int gameId = gameService.findGame(title);
         if (gameId < 1) {
             //the game doesn't exist
@@ -58,17 +51,26 @@ public class VotingServiceImpl extends DatabaseService implements VotingService 
      * @return vote count after update
      */
     public int changeVote(boolean positive, int gameId) {
+        int voteDecrement = -1;
+        int voteIncrement = 1;
         int voteVal = positive ? voteIncrement : voteDecrement;
-        String sql = "update " + voteTable + " set votes = votes + ? where gameId = ?";
+
+        Session session = getSessionFactory().openSession();
+        Transaction tx = null;
         try {
-            PreparedStatement preparedStatement = conn.prepareStatement(sql);
-            preparedStatement.setInt(1, voteVal);
-            preparedStatement.setInt(2, gameId);
-            preparedStatement.executeUpdate();
-        }
-        catch (SQLException e) {
-            logger.error("Error adding a vote for title: " + e.getMessage());
+            tx = session.beginTransaction();
+            Vote vote = (Vote) session.get(Vote.class, gameId);
+            vote.setVotes(vote.getVotes() + voteVal);
+            tx.commit();
+        } catch (HibernateException e) {
+            logger.error("Error changing 'vote' value");
+            if (tx != null) {
+                tx.rollback(); //undo the unfinished transaction
+            }
+            e.printStackTrace();
             return 0;
+        } finally {
+            session.close();
         }
         return getVotes(gameId);
     }
@@ -89,6 +91,7 @@ public class VotingServiceImpl extends DatabaseService implements VotingService 
      */
     @Override
     public int getVotes(String title) {
+        GameService gameService = new GameServiceImpl();
         int gameId = gameService.findGame(title);
         if (gameId < 1) {
             //games that don't exist have 0 votes
@@ -104,21 +107,11 @@ public class VotingServiceImpl extends DatabaseService implements VotingService 
      * @return total vote count
      */
     public int getVotes(int gameId) {
-        String sql = "select votes from " + voteTable + " where gameId = ?";
-        try {
-            PreparedStatement preparedStatement = conn.prepareStatement(sql);
-            preparedStatement.setInt(1, gameId);
-            ResultSet resultSet = preparedStatement.executeQuery();
-            if (!resultSet.next()) {
-                logger.debug("No votes were found.");
-                return 0;
-            }
-            return resultSet.getInt("votes");
-        }
-        catch (SQLException e) {
-            logger.error("Error getting votes for title: " + e.getMessage());
-            return 0;
-        }
+        Session session = getSessionFactory().openSession();
+        Vote vote = (Vote) session.get(Vote.class, gameId);
+        Integer voteCount = vote.getVotes();
+        session.close();
+        return voteCount; //autoboxing
     }
 
     /**
@@ -128,16 +121,47 @@ public class VotingServiceImpl extends DatabaseService implements VotingService 
      * @return whether or not the game was successfully added
      */
     public boolean makeVoteable(int gameId) {
-        String sql = "insert into " + voteTable + " Values(?, default)";
+        int startingVotes = 1;
+        Session session = getSessionFactory().openSession();
+        Transaction tx = null;
         try {
-            PreparedStatement preparedStatement = conn.prepareStatement(sql);
-            preparedStatement.setInt(1, gameId);
-            preparedStatement.executeUpdate();
-        }
-        catch (SQLException e) {
-            logger.error("Error making title voteable: " + e.getMessage());
+            tx = session.beginTransaction();
+            Vote vote = new Vote(gameId, startingVotes);
+            session.save(vote);
+            tx.commit();
+        } catch (HibernateException e) {
+            logger.error("Error making game voteable");
+            if (tx != null) {
+                tx.rollback(); //undo the unfinished transaction
+            }
+            e.printStackTrace();
             return false;
+        } finally {
+            session.close();
         }
+        logger.debug("Made game voteable");
+        return true;
+    }
+
+    public boolean deleteVotes(int gameId) {
+        Session session = getSessionFactory().openSession();
+        Transaction tx = null;
+        try {
+            tx = session.beginTransaction();
+            Vote vote = (Vote) session.get(Vote.class, gameId);
+            session.delete(vote);
+            tx.commit();
+        } catch (HibernateException e) {
+            logger.error("Error deleting votes");
+            if (tx != null) {
+                tx.rollback(); //undo the unfinished transaction
+            }
+            e.printStackTrace();
+            return false;
+        } finally {
+            session.close();
+        }
+        logger.debug("Deleted votes");
         return true;
     }
 }

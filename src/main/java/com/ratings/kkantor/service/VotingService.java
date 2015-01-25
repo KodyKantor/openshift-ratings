@@ -7,4 +7,5 @@ public interface VotingService {
     public int changeVote(boolean positive, int gameId);
     public int changeVote(boolean positive, String title);
     public boolean makeVoteable(int gameId);
+    public boolean deleteVotes(int gameId);
 }
